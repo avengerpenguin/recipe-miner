@@ -58,7 +58,7 @@ WHERE recipeId='{}'""".format(recipe_id)
 
 
 def arff_recipes(recipes):
-    arff = "@relation recipes\n\n@attribute recipe_id\n"
+    arff = "@relation recipes\n\n@attribute recipe_id string\n"
 
     food_ids = list(set(
             [food.food_id for food in itertools.chain(
