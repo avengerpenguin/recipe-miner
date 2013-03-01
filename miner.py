@@ -37,8 +37,11 @@ class Recipe:
         return str(self)
 
 
-def fetch(cursor, query):
-    cursor.execute(query)
+def fetch(cursor, query, args=None):
+    if args:
+        cursor.execute(query, args)
+    else:
+        cursor.execute(query)
     for row in cursor.fetchall():
         yield row
 
@@ -51,9 +54,9 @@ FROM stages
 JOIN ingredients ON ingredients.stageId = stages.id
 JOIN ingredientsToFoods on ingredientsToFoods.ingredientId = ingredients.id
 JOIN foods ON foods.id = ingredientsToFoods.foodId
-WHERE recipeId='{}'""".format(recipe_id)
+WHERE recipeId=%s"""
 
-        ingredients = [Food(food_id, food_title) for food_id, food_title in fetch(cursor, query)]
+        ingredients = [Food(food_id, food_title) for food_id, food_title in fetch(cursor, query, (recipe_id))]
         yield Recipe(recipe_id, title, ingredients)
 
 
@@ -66,13 +69,13 @@ def arff_recipes(recipes):
     food_ids.sort()
 
     for food_id in food_ids:
-        arff += "@attribute {} numeric\n".format(food_id)
+        arff += "@attribute %s {False,True}\n" % food_id
 
     arff += "\n@data\n"
 
     for recipe in recipes:
         arff += recipe.recipe_id + ","
-        arff += ",".join([str(int(food_id in [ingredient.food_id for ingredient in recipe.ingredients]))
+        arff += ",".join([str(food_id in [ingredient.food_id for ingredient in recipe.ingredients])
                           for food_id in food_ids])
         arff += "\n"
 
