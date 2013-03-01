@@ -45,7 +45,7 @@ def fetch(cursor, query):
 
 def get_recipes(cursor):
     query = 'SELECT id, title FROM recipes ORDER BY RAND()'
-    for recipe_id, title in itertools.islice(fetch(cursor, query), 10):
+    for recipe_id, title in itertools.islice(fetch(cursor, query), 100):
         query = """SELECT foods.id, foods.title
 FROM stages
 JOIN ingredients ON ingredients.stageId = stages.id
@@ -92,6 +92,9 @@ if __name__ == '__main__':
    recipes = list(get_recipes(cursor))
    #for recipe in recipes:
    #    print recipe
-   print arff_recipes(recipes)
+   #print arff_recipes(recipes)
+
+   for recipe1, recipe2 in zip(recipes):
+       print recipe1, recipe2
 
    connection.close()
