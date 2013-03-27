@@ -33,10 +33,11 @@ class Food(object):
         return hash(self.food_id)
 
 class Recipe(object):
-    def __init__(self, recipe_id, title, ingredients):
+    def __init__(self, recipe_id, title, ingredients, cuisine):
         self.recipe_id = recipe_id
         self.title = title
         self.ingredients = ingredients
+        self.cuisine = cuisine
 
     def __str__(self):
         return '<Recipe: %s (%s)>' % (self.title, ", ".join([x.title for x in self.ingredients]))
@@ -72,8 +73,8 @@ def fetch(cursor, query, args=None):
 
 
 def get_recipes(cursor):
-    query = 'SELECT id, title FROM recipes ORDER BY RAND() LIMIT 200'
-    for recipe_id, title in fetch(cursor, query):
+    query = 'SELECT id, title, cuisineId FROM recipes WHERE cuisineId IS NOT NULL'
+    for recipe_id, title, cuisine in fetch(cursor, query):
         query = """SELECT foods.id, foods.title
 FROM stages
 JOIN ingredients ON ingredients.stageId = stages.id
@@ -81,9 +82,10 @@ JOIN ingredientsToFoods on ingredientsToFoods.ingredientId = ingredients.id
 JOIN foods ON foods.id = ingredientsToFoods.foodId
 WHERE recipeId=%s"""
 
-        ingredients = [Food(food_id, food_title) for food_id, food_title in fetch(cursor, query, (recipe_id))]
+        ingredients = [Food(food_id, food_title)
+                       for food_id, food_title in fetch(cursor, query, (recipe_id))]
         if recipe_id and title and ingredients:
-            yield Recipe(recipe_id, title, ingredients)
+            yield Recipe(recipe_id, title, ingredients, cuisine)
 
 
 def arff_recipes(recipes):
@@ -94,13 +96,17 @@ def arff_recipes(recipes):
                     *[recipe.ingredients for recipe in recipes])]))
     food_ids.sort()
 
+    cuisines = list(set(recipe.cuisine for recipe in recipes))
+    cuisines.sort()
+
+    arff += "@attribute cuisine {%s}\n" % (",".join(cuisines),)
     for food_id in food_ids:
         arff += "@attribute %s {False,True}\n" % food_id
 
     arff += "\n@data\n"
 
     for recipe in recipes:
-        arff += recipe.recipe_id + ","
+        arff += "%s,%s," % (recipe.recipe_id, recipe.cuisine)
         arff += ",".join([str(food_id in [ingredient.food_id for ingredient in recipe.ingredients])
                           for food_id in food_ids])
         arff += "\n"
@@ -194,18 +200,18 @@ if __name__ == '__main__':
     #    print recipe
     #print arff_recipes(recipes)
 
-    distances = []
+    #distances = []
     for recipe1, recipe2 in itertools.product(recipes, recipes):
         #print recipe1.recipe_id, recipe2.recipe_id
         #print distance(recipe1, recipe2)
-    #    cursor.execute("INSERT INTO distances (recipe1, recipe2, distance) VALUES (%s, %s, %s)",
-    #                   (recipe1.recipe_id, recipe2.recipe_id, distance(recipe1, recipe2)))
-        if recipe1.recipe_id != recipe2.recipe_id:
-            distances.append((distance(recipe1, recipe2), recipe1, recipe2))
+        cursor.execute("INSERT INTO distances (recipe1, recipe2, distance) VALUES (%s, %s, %s)",
+                       (recipe1.recipe_id, recipe2.recipe_id, distance(recipe1, recipe2)))
+        connection.commit()
+    #    if recipe1.recipe_id != recipe2.recipe_id:
+    #        distances.append((distance(recipe1, recipe2), recipe1, recipe2))
 
-    cluster(recipes, distances)
+    #cluster(recipes, distances)
 
-    connection.commit()
     cursor.close()
     connection.close()
     
