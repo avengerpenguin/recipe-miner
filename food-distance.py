@@ -16,7 +16,7 @@ import itertools
 class Food(object):
     def __init__(self, food_id, title, recipes):
         self.food_id = food_id
-        self.title = title
+        #self.title = title
         self.recipes = recipes
 
     def __str__(self):
@@ -34,7 +34,7 @@ class Food(object):
 class Recipe(object):
     def __init__(self, recipe_id, title, cuisine):
         self.recipe_id = recipe_id
-        self.title = title
+        #self.title = title
         self.cuisine = cuisine
 
     def __str__(self):
@@ -74,20 +74,17 @@ if __name__ == '__main__':
                                  passwd=arguments['<password>'],
                                  db=arguments['<database>'])
 
-    cursor = connection.cursor() 
+    cursor1 = connection.cursor() 
+    cursor2 = connection.cursor() 
 
-    query = """SELECT foods.id, foods.title
+    query = """SELECT DISTINCT foods.id, foods.title
 FROM foods
 JOIN ingredientsToFoods ON ingredientsToFoods.foodId = foods.id
 JOIN ingredients ON ingredientsToFoods.ingredientId = ingredients.id
 JOIN stages ON ingredients.stageId = stages.id
 JOIN recipes ON recipes.id = stages.recipeId AND recipes.cuisineId IS NOT NULL"""
-
-    foods = []
-
-    for food_id, food_title in fetch(cursor, query):
-        recipe_query = """
-SELECT recipes.id, recipes.title, recipes.cuisineId
+    recipe_query = """
+SELECT DISTINCT recipes.id, recipes.title, recipes.cuisineId
 FROM recipes
 JOIN stages ON stages.recipeId = recipes.id
 JOIN ingredients ON ingredients.stageId = stages.id
@@ -95,18 +92,32 @@ JOIN ingredientsToFoods ON ingredientsToFoods.ingredientId = ingredients.id
 JOIN foods ON foods.id = ingredientsToFoods.foodId
 WHERE foods.id =  %s
 """
-        recipes = [Recipe(*fields) for fields in fetch(cursor, recipe_query, (food_id))]
-        if food_id and food_title and recipes:
-            foods.append(Food(food_id, food_title, recipes))
 
-    for food1, food2 in itertools.product(foods, foods):
-        food_distance = distance(food1, food2)
-        #print food1.title, food2.title, food_distance
-        cursor.execute("INSERT INTO foodsDistances (food1, food2, distance) VALUES (%s, %s, %s)",
-                       (food1.food_id, food2.food_id, food_distance))
-        connection.commit()
+    for food_id, food_title in fetch(connection.cursor(), query):
+        recipes1 = [Recipe(*fields) for fields in fetch(connection.cursor(), recipe_query, (food_id))]
+        if food_id and food_title and recipes1:
+            food1 = Food(food_id, food_title, recipes1)
 
-    cursor = connection.cursor() 
+            for food_id, food_title in fetch(connection.cursor(), query):
+                recipes2 = [Recipe(*fields) for fields in fetch(connection.cursor(), recipe_query, (food_id))]
+                if food_id and food_title and recipes2:
+                    food2 = Food(food_id, food_title, recipes2)
 
-    cursor.close()
+                    food_distance = distance(food1, food2)
+                    print food1.food_id, food2.food_id, food_distance
+                    try:
+                        connection.cursor().execute("INSERT INTO foodsDistances (food1, food2, distance) VALUES (%s, %s, %s)",
+                                       (food1.food_id, food2.food_id, food_distance))
+                    except Exception, e:
+                        print e
+                    connection.commit()
+
+#    for food1, food2 in itertools.product(foods, foods):
+#        food_distance = distance(food1, food2)
+#        print food1.title, food2.title, food_distance
+#        cursor.execute("INSERT INTO foodsDistances (food1, food2, distance) VALUES (%s, %s, %s)",
+#                       (food1.food_id, food2.food_id, food_distance))
+#        connection.commit()
+
+    #cursor.close()
     connection.close()
